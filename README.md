@@ -25,10 +25,22 @@ hermes plugins install heidis168/hermes-tools/plugins/remote-ssh
 hermes plugins enable remote-ssh
 ```
 
+更新插件：
+
+```bash
+hermes plugins update remote-ssh
+```
+
 ### 2. 装技能
 
 ```bash
 hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel
+```
+
+更新技能：
+
+```bash
+hermes skills update remote-ssh-parallel
 ```
 
 ---
