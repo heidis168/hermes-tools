@@ -6,80 +6,37 @@ Hermes Agent 的插件和技能合集。
 
 ```
 hermes-tools/
-├── plugins/                 # Hermes 插件
-│   └── remote-ssh/          # SSH 远程服务器管理插件
-├── skills/                  # Hermes 技能
-│   └── remote-ssh-parallel/ # 远程 SSH 操作指南（与插件配套使用）
+├── __init__.py              # 插件入口
+├── plugin.yaml              # 插件元信息
+├── tools.py                 # 工具处理函数
+├── ssh_manager.py           # SSH 连接管理器
+├── schemas.py               # 工具参数 schema
+├── skills/
+│   └── remote-ssh-parallel/ # 远程 SSH 操作指南（技能）
 └── README.md
 ```
 
 ---
 
-## 前置条件：安装 Hermes Agent
-
-如果你还没有 Hermes Agent，先安装它：
-
-```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-```
-
-安装完成后，运行 `hermes setup` 完成初始配置，或直接开始使用。
-
----
-
 ## 安装方法
 
-### 1. 安装插件（remote-ssh）
-
-**方式一：hermes plugins install（推荐）**
+### 1. 安装插件
 
 ```bash
-git clone https://github.com/heidis168/hermes-tools.git
-hermes plugins install ./hermes-tools/plugins/remote-ssh
+hermes plugins install heidis168/hermes-tools
+hermes plugins update remote-ssh
 ```
 
-**方式二：手动复制**
+### 2. 安装技能
 
 ```bash
-git clone https://github.com/heidis168/hermes-tools.git
-cp -r hermes-tools/plugins/remote-ssh ~/.hermes/plugins/
+hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel
 ```
 
-安装后，在 Hermes 中启用工具集：
+如需强制覆盖已安装的技能：
 
 ```bash
-hermes tools enable remote-ssh
-```
-
-> 插件依赖 `paramiko`，加载时会自动安装。如果自动安装失败，手动执行：
-> ```bash
-> pip install paramiko
-> ```
-
-### 2. 安装技能（remote-ssh-parallel）
-
-**方式一：hermes skills install（推荐）**
-
-```bash
-hermes skills install https://raw.githubusercontent.com/heidis168/hermes-tools/main/skills/remote-ssh-parallel/SKILL.md
-```
-
-**方式二：手动复制**
-
-```bash
-cp -r hermes-tools/skills/remote-ssh-parallel ~/.hermes/skills/devops/
-```
-
-加载技能：
-
-```
-/skill remote-ssh-parallel
-```
-
-或启动时加载：
-
-```bash
-hermes -s remote-ssh-parallel
+hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel --force
 ```
 
 ---
@@ -142,25 +99,3 @@ delegate_task(tasks=[
 - `delegate_task` 并行操作多台服务器
 - 批量模式（最多 5 台并行）
 - 已知 BUG 与修复记录
-
----
-
-## 开发
-
-```bash
-# 克隆
-git clone https://github.com/heidis168/hermes-tools.git
-cd hermes-tools
-
-# 插件代码结构
-plugins/remote-ssh/
-├── __init__.py      # 插件入口，注册 8 个工具
-├── tools.py         # 工具处理函数
-├── ssh_manager.py   # SSH 连接管理器（单例，线程安全）
-├── schemas.py       # 工具参数 schema
-└── plugin.yaml      # 插件元信息
-
-# 技能文档结构
-skills/remote-ssh-parallel/
-└── SKILL.md         # 使用指南
-```

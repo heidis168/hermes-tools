@@ -14,6 +14,3 @@ build/
 # OS
 .DS_Store
 Thumbs.db
-
-# Hermes local
-*.local
