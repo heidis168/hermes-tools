@@ -6,14 +6,12 @@ Hermes Agent 的插件和技能合集。
 
 ```
 hermes-tools/
-├── __init__.py              # 插件入口
-├── plugin.yaml              # 插件元信息
-├── tools.py                 # 工具处理函数
-├── ssh_manager.py           # SSH 连接管理器
-├── schemas.py               # 工具参数 schema
-├── skills/
-│   └── remote-ssh-parallel/ # 远程 SSH 操作指南（技能）
-└── README.md
+├── plugins/                 # 插件
+│   └── remote-ssh/          # SSH 远程服务器管理插件
+├── skills/                  # 技能
+│   └── remote-ssh-parallel/ # 远程 SSH 操作指南
+├── README.md
+└── .gitignore
 ```
 
 ---
@@ -23,8 +21,16 @@ hermes-tools/
 ### 1. 安装插件
 
 ```bash
-hermes plugins install heidis168/hermes-tools
-hermes plugins update remote-ssh
+git clone https://github.com/heidis168/hermes-tools.git
+cp -r hermes-tools/plugins/remote-ssh ~/.hermes/plugins/
+hermes plugins enable remote-ssh
+```
+
+更新插件：
+
+```bash
+cd hermes-tools && git pull
+cp -r plugins/remote-ssh ~/.hermes/plugins/
 ```
 
 ### 2. 安装技能
@@ -33,7 +39,7 @@ hermes plugins update remote-ssh
 hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel
 ```
 
-如需强制覆盖已安装的技能：
+强制覆盖：
 
 ```bash
 hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel --force
