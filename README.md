@@ -50,6 +50,12 @@ hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel
 hermes skills update remote-ssh-parallel
 ```
 
+技能损坏时，强制重装：
+
+```bash
+hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel --force
+```
+
 ---
 
 ## 插件列表
