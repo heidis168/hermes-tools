@@ -31,6 +31,13 @@ hermes plugins enable remote-ssh
 hermes plugins update remote-ssh
 ```
 
+插件损坏时，强制重装：
+
+```bash
+hermes plugins install heidis168/hermes-tools/plugins/remote-ssh --force
+hermes plugins enable remote-ssh
+```
+
 ### 2. 装技能
 
 ```bash
