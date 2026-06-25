@@ -18,31 +18,17 @@ hermes-tools/
 
 ## 安装方法
 
-### 1. 安装插件
+### 1. 装插件
 
 ```bash
-git clone https://github.com/heidis168/hermes-tools.git
-cp -r hermes-tools/plugins/remote-ssh ~/.hermes/plugins/
+hermes plugins install heidis168/hermes-tools/plugins/remote-ssh
 hermes plugins enable remote-ssh
 ```
 
-更新插件：
-
-```bash
-cd hermes-tools && git pull
-cp -r plugins/remote-ssh ~/.hermes/plugins/
-```
-
-### 2. 安装技能
+### 2. 装技能
 
 ```bash
 hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel
-```
-
-强制覆盖：
-
-```bash
-hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel --force
 ```
 
 ---
