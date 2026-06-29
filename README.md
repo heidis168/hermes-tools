@@ -9,7 +9,8 @@ hermes-tools/
 ├── plugins/                 # 插件
 │   └── remote-ssh/          # SSH 远程服务器管理插件
 ├── skills/                  # 技能
-│   └── remote-ssh-parallel/ # 远程 SSH 操作指南
+│   ├── remote-ssh-parallel/ # 远程 SSH 操作指南
+│   └── windows-computer-use-setup/  # Windows Computer Use 配置指南
 ├── README.md
 └── .gitignore
 ```
@@ -42,6 +43,12 @@ hermes plugins enable remote-ssh
 
 ```bash
 hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel
+```
+
+或者安装 Windows Computer Use 配置指南：
+
+```bash
+hermes skills install heidis168/hermes-tools/skills/windows-computer-use-setup
 ```
 
 更新技能：
@@ -116,3 +123,11 @@ delegate_task(tasks=[
 - `delegate_task` 并行操作多台服务器
 - 批量模式（最多 5 台并行）
 - 已知 BUG 与修复记录
+
+### windows-computer-use-setup
+
+在 Windows 11 上配置 Hermes `computer_use` 桌面控制功能的完整指南，涵盖：
+- cua-driver 安装与后台服务配置
+- MCP 服务器注册与超时调优
+- **pywin32 缺失陷阱**（uv Python 环境）的诊断与修复
+- 端到端验证
