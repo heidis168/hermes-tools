@@ -176,3 +176,29 @@ computer_use(action="capture", mode="som")
 | `which cua-driver` 返回空 | PATH 未更新 | 见平台章节 |
 | `computer_use` 工具不在列表中 | 未重启 | 重启 Hermes |
 | capture 返回空 | 无前台窗口或权限问题 | `cua-driver health_report` |
+| `list_apps` 返回空但 `cua-driver call list_apps` 正常 | Hermes 包装层 session hang | 修复 `_lifecycle_coro.finally` 块：`self._started = False` |
+| `list_apps` 返回 `- xxx.exe` 带前缀 | cua-driver Windows 命名约定 | `capture(app=...)` 用 substring 匹配，需去掉 `-` 和 `.exe` |
+| `hotkey` 在现代 XAML/UWP 应用失败 | CoreInput dispatcher 只接收 SendInput | 用 `click` 点菜单元素，或用传统 Win32 应用 |
+
+## 调试技巧
+
+当 `computer_use` 行为异常但底层 `cua-driver` 正常时，绕过包装层直接测试：
+
+```bash
+# 列出应用（绕过 Hermes）
+cua-driver call list_apps
+
+# 启动记事本测试
+cua-driver call launch_app --json-args '{"name": "notepad"}'
+
+# 输入文字
+cua-driver call type_text --json-args '{"pid": <pid>, "text": "Hello"}'
+
+# 截图保存
+cuda-driver call get_window_state --json-args '{"pid": <pid>, "window_id": <wid>, "capture_mode": "som"}' --screenshot-out-file test.png
+
+# 关闭应用
+cua-driver call kill_app --json-args '{"pid": <pid>}'
+```
+
+如果这些直接调用都正常但 `computer_use` 工具失败，问题在 Hermes 包装层——检查 `tools/computer_use/cua_backend.py` 的 `_lifecycle_coro`、`call_tool`、`list_apps`、`capture` 等方法。
