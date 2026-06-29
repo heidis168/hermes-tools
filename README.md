@@ -10,7 +10,7 @@ hermes-tools/
 │   └── remote-ssh/          # SSH 远程服务器管理插件
 ├── skills/                  # 技能
 │   ├── remote-ssh-parallel/ # 远程 SSH 操作指南
-│   └── windows-computer-use-setup/  # Windows Computer Use 配置指南
+│   └── computer-use-setup/   # Computer Use 跨平台配置指南
 ├── README.md
 └── .gitignore
 ```
@@ -48,7 +48,7 @@ hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel
 或者安装 Windows Computer Use 配置指南：
 
 ```bash
-hermes skills install heidis168/hermes-tools/skills/windows-computer-use-setup
+hermes skills install heidis168/hermes-tools/skills/computer-use-setup
 ```
 
 更新技能：
@@ -124,10 +124,11 @@ delegate_task(tasks=[
 - 批量模式（最多 5 台并行）
 - 已知 BUG 与修复记录
 
-### windows-computer-use-setup
+### computer-use-setup
 
-在 Windows 11 上配置 Hermes `computer_use` 桌面控制功能的完整指南，涵盖：
+在任意平台上配置 Hermes `computer_use` 桌面控制功能的跨平台指南，涵盖：
 - cua-driver 安装与后台服务配置
 - MCP 服务器注册与超时调优
-- **pywin32 缺失陷阱**（uv Python 环境）的诊断与修复
-- 端到端验证
+- Windows：git-bash PATH 修复、pywin32 缺失陷阱
+- Linux / macOS：待补充
+- 端到端验证与故障排除速查表
