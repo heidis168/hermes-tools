@@ -1,0 +1,11 @@
+name: ao-roles
+version: 1.0.0
+description: 自动角色匹配引擎 — 从 266 个专业角色中根据内容自动匹配角色阵容，支持角色搜索、匹配、工作流编排
+author: Hermes
+pip_dependencies: []
+provides_tools:
+  - ao_roles_index
+  - ao_roles_search
+  - ao_roles_match
+  - ao_roles_load
+  - ao_roles_list_categories
