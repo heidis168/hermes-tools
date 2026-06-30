@@ -227,7 +227,7 @@ def _handle_index(**kw) -> str:
                 "emoji": fm.get("emoji", ""),
                 "color": fm.get("color", ""),
                 "category": category,
-                "filepath": filepath,
+                # 不存 filepath — 由 _handle_load 动态计算
                 "summary": body[:300].strip(),
                 "body_length": len(body),
             })
