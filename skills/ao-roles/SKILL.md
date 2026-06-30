@@ -100,45 +100,145 @@ activation:
 
 ### 第 4 步：编排工作流 DAG
 
-根据角色间的依赖关系生成工作流。无依赖的步骤可并行执行（通过批量 `delegate_task`）。
+**核心原则：必须先有统一架构，再有并行执行。**
+
+所有多角色工作流必须遵循以下阶段：
+
+```
+阶段 0: 统一架构（必须最先执行，且仅此一个角色）
+  └── 架构师/产品经理 定义：
+      - API 接口规范（端点、请求/响应格式）
+      - 数据 Schema（字段名、类型、约束）
+      - 技术栈选型
+      - 输出：architecture_spec（所有下游角色共享）
+
+阶段 1: 并行执行（依赖阶段 0 的输出）
+  ├── 后端开发者 → 按 architecture_spec 实现 API
+  ├── 前端开发者 → 按 architecture_spec 实现 UI
+  ├── 数据库优化师 → 按 architecture_spec 设计表
+  └── ...（所有角色共享同一份规范）
+
+阶段 2: 交叉审查（依赖阶段 1 的输出）
+  ├── 安全工程师 → 审查 API + UI + Schema
+  └── 测试员 → 根据 API 规范写测试
+
+阶段 3: 汇总（依赖阶段 2 的输出）
+  └── 输出最终报告
+```
+
+**禁止**：让多个角色在无统一规范的情况下各做各的，然后期望它们能拼在一起。
 
 ### 第 5 步：通过 delegate_task 执行
 
-每个步骤使用 `delegate_task` 派生子代理执行：
-
-```python
-# 单步子代理
-role_content = ao_roles_load(slug="{slug}")  # 使用插件工具加载
-
-delegate_task(
-    goal="作为 {角色名}，完成以下任务：{具体任务描述}",
-    context=f"""你的角色定义：
-{role_content}
-
-上游输出：
-{如果有依赖，传入上游步骤的输出}
-
-任务要求：
-- 使用真实工具（read_file / terminal / search_files / web_search 等）完成任务
-- 输出具体、可验证的结果
-- 不要只做对话回复，必须执行真实操作""",
-    toolsets=["terminal", "file", "web"],  # 根据任务类型选择合适的工具集
-)
-
-# 并行执行（无依赖的步骤）
-delegate_task(
-    tasks=[
-        {"goal": "...", "context": "...", "toolsets": [...]},
-        {"goal": "...", "context": "...", "toolsets": [...]},
-    ]
-)
-```
+每个步骤使用 `delegate_task` 派生子代理执行。
 
 **关键规则**：
-- 子代理的 `context` 中必须包含完整的角色人格定义（从 `.md` 文件读取）
-- 子代理的 `toolsets` 根据任务类型选择（代码审查用 `terminal`+`file`，内容创作用 `web` 等）
-- 无依赖的步骤通过 `tasks=[]` 批量并行
-- 每个子代理的 goal 要明确要求"使用真实工具，不要只做对话"
+- **阶段 0（统一架构）必须先执行**，生成所有下游角色共享的 `architecture_spec`
+- 阶段 1 的每个子代理的 context 中**必须包含完整的 `architecture_spec`**，确保字段名、接口路径、数据格式一致
+- 阶段 2 的审查角色**必须拿到阶段 1 的全部输出**才能做有效审查
+- 子代理的 `toolsets` 根据任务类型选择
+
+```python
+# ════════════════════════════════════════════════════════════
+# 阶段 0: 统一架构（先导，仅此一个角色）
+# ════════════════════════════════════════════════════════════
+architect_role = ao_roles_load(slug="engineering-backend-architect")
+architecture_spec = delegate_task(
+    goal="作为后端架构师，为登录系统定义统一架构规范",
+    context=f"""你的角色定义：
+{architect_role}
+
+你的任务：
+为登录系统定义以下统一规范，所有下游角色将共享此规范：
+
+1. API 接口规范
+   - 端点路径、HTTP 方法、请求/响应 JSON 格式
+   - 认证方式（JWT / Session）
+   - 错误码规范
+
+2. 数据 Schema
+   - 用户表字段名、类型、约束
+   - Token 表结构
+   - 字段命名约定（snake_case / camelCase）
+
+3. 技术栈
+   - 后端语言/框架
+   - 前端框架
+   - 数据库
+
+输出格式必须是结构化的 JSON/YAML 规范，所有下游角色直接引用。""",
+    toolsets=["file"],
+)
+
+# ════════════════════════════════════════════════════════════
+# 阶段 1: 并行执行（所有角色共享 architecture_spec）
+# ════════════════════════════════════════════════════════════
+backend_role = ao_roles_load(slug="engineering-backend-architect")
+frontend_role = ao_roles_load(slug="engineering-frontend-developer")
+db_role = ao_roles_load(slug="engineering-database-optimizer")
+
+results_phase1 = delegate_task(tasks=[
+    {
+        "goal": "作为后端架构师，按统一规范实现认证 API",
+        "context": f"你的角色定义：\n{backend_role}\n\n统一架构规范：\n{architecture_spec}\n\n严格按以上规范实现，字段名、路径、格式必须一致。",
+        "toolsets": ["terminal", "file"],
+    },
+    {
+        "goal": "作为前端开发者，按统一规范实现登录 UI",
+        "context": f"你的角色定义：\n{frontend_role}\n\n统一架构规范：\n{architecture_spec}\n\nAPI 接口和数据格式必须与规范完全一致。",
+        "toolsets": ["terminal", "file"],
+    },
+    {
+        "goal": "作为数据库优化师，按统一规范设计 Schema",
+        "context": f"你的角色定义：\n{db_role}\n\n统一架构规范：\n{architecture_spec}\n\n表名、字段名、类型必须与规范一致。",
+        "toolsets": ["terminal", "file"],
+    },
+])
+
+# ════════════════════════════════════════════════════════════
+# 阶段 2: 交叉审查（依赖阶段 1 全部输出）
+# ════════════════════════════════════════════════════════════
+security_role = ao_roles_load(slug="engineering-security-engineer")
+tester_role = ao_roles_load(slug="testing-api-tester")
+
+results_phase2 = delegate_task(tasks=[
+    {
+        "goal": "作为安全工程师，审查登录系统的安全性",
+        "context": f"你的角色定义：\n{security_role}\n\n统一架构规范：\n{architecture_spec}\n\n后端实现：{results_phase1[0]}\n前端实现：{results_phase1[1]}\n数据库Schema：{results_phase1[2]}",
+        "toolsets": ["terminal", "file", "web"],
+    },
+    {
+        "goal": "作为 API 测试员，根据规范测试认证 API",
+        "context": f"你的角色定义：\n{tester_role}\n\n统一架构规范：\n{architecture_spec}\n\n后端实现：{results_phase1[0]}",
+        "toolsets": ["terminal", "file"],
+    },
+])
+
+# ════════════════════════════════════════════════════════════
+# 阶段 3: 汇总
+# ════════════════════════════════════════════════════════════
+final_report = f"""
+# 登录系统交付报告
+
+## 统一架构规范
+{architecture_spec}
+
+## 后端 API
+{results_phase1[0]}
+
+## 前端 UI
+{results_phase1[1]}
+
+## 数据库 Schema
+{results_phase1[2]}
+
+## 安全审查
+{results_phase2[0]}
+
+## API 测试
+{results_phase2[1]}
+"""
+```
 
 ### 第 6 步：汇总输出
 

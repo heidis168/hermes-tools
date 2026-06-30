@@ -100,80 +100,126 @@ DAG：
 
 ---
 
-## 示例 2：登录系统全套（6 角色，3 路并行）
+## 示例 2：登录系统全套（4 阶段，严格串行→并行→串行）
 
 ```
 输入："做一个登录系统 全套"
 
-DAG：
-  step_1 (UX) ──→  step_2 (后端) ──→  step_5 (安全) ──→  step_6 (测试)
-                ──→  step_3 (前端) ──→       ↑
-                ──→  step_4 (数据库) ──→     ↑
-  (step_2/3/4 并行)
+阶段 0: 统一架构（先导，仅此一个角色）
+  └── 后端架构师 → 定义 API 规范、数据 Schema、技术栈
+      输出：architecture_spec（所有下游角色共享）
+
+阶段 1: 并行执行（依赖阶段 0）
+  ├── 后端架构师 → 按 architecture_spec 实现 API
+  ├── 前端开发者 → 按 architecture_spec 实现 UI
+  └── 数据库优化师 → 按 architecture_spec 设计表
+
+阶段 2: 交叉审查（依赖阶段 1）
+  ├── 安全工程师 → 审查 API + UI + Schema
+  └── API 测试员 → 根据规范测试 API
+
+阶段 3: 汇总
+  └── 输出最终报告
 
 执行：
-  # 第 1 批：UX 架构师（先导）
-  ux_result = delegate_task(
-    goal="作为 UX 架构师，设计登录系统的用户流程和交互规范",
-    context=role_ux_context,
-    toolsets=["file"],
+  # ══════════════════════════════════════
+  # 阶段 0: 统一架构（必须先执行）
+  # ══════════════════════════════════════
+  architect_role = ao_roles_load(slug="engineering-backend-architect")
+  architecture_spec = delegate_task(
+      goal="作为后端架构师，为登录系统定义统一架构规范",
+      context=f"""你的角色定义：
+{architect_role}
+
+为登录系统定义以下统一规范，所有下游角色将共享此规范：
+
+1. API 接口规范
+   - 端点路径、HTTP 方法、请求/响应 JSON 格式
+   - 认证方式（JWT / Session）
+   - 错误码规范
+
+2. 数据 Schema
+   - 用户表字段名、类型、约束
+   - Token 表结构
+   - 字段命名约定（snake_case / camelCase）
+
+3. 技术栈
+   - 后端语言/框架
+   - 前端框架
+   - 数据库
+
+输出格式必须是结构化的 JSON/YAML 规范，所有下游角色直接引用。""",
+      toolsets=["file"],
   )
 
-  # 第 2 批：后端 + 前端 + 数据库 并行
-  results_2_4 = delegate_task(tasks=[
-    {
-        "goal": "作为后端架构师，设计认证 API",
-        "context": f"{role_backend_context}\n\nUX 设计：{ux_result}",
-        "toolsets": ["terminal", "file"],
-    },
-    {
-        "goal": "作为前端开发者，实现登录 UI",
-        "context": f"{role_frontend_context}\n\nUX 设计：{ux_result}",
-        "toolsets": ["terminal", "file"],
-    },
-    {
-        "goal": "作为数据库优化师，设计用户表 Schema",
-        "context": f"{role_db_context}\n\nUX 设计：{ux_result}",
-        "toolsets": ["terminal", "file"],
-    },
+  # ══════════════════════════════════════
+  # 阶段 1: 并行执行（所有角色共享 architecture_spec）
+  # ══════════════════════════════════════
+  backend_role = ao_roles_load(slug="engineering-backend-architect")
+  frontend_role = ao_roles_load(slug="engineering-frontend-developer")
+  db_role = ao_roles_load(slug="engineering-database-optimizer")
+
+  results_phase1 = delegate_task(tasks=[
+      {
+          "goal": "作为后端架构师，按统一规范实现认证 API",
+          "context": f"你的角色定义：\n{backend_role}\n\n统一架构规范：\n{architecture_spec}\n\n严格按以上规范实现，字段名、路径、格式必须一致。",
+          "toolsets": ["terminal", "file"],
+      },
+      {
+          "goal": "作为前端开发者，按统一规范实现登录 UI",
+          "context": f"你的角色定义：\n{frontend_role}\n\n统一架构规范：\n{architecture_spec}\n\nAPI 接口和数据格式必须与规范完全一致。",
+          "toolsets": ["terminal", "file"],
+      },
+      {
+          "goal": "作为数据库优化师，按统一规范设计 Schema",
+          "context": f"你的角色定义：\n{db_role}\n\n统一架构规范：\n{architecture_spec}\n\n表名、字段名、类型必须与规范一致。",
+          "toolsets": ["terminal", "file"],
+      },
   ])
 
-  # 第 3 批：安全审查（依赖上一步全部输出）
-  security_result = delegate_task(
-    goal="作为安全工程师，对登录系统进行安全审查",
-    context=f"{role_security_context}\n\nAPI 设计：{results_2_4[0]}\nUI 实现：{results_2_4[1]}\n数据库 Schema：{results_2_4[2]}",
-    toolsets=["terminal", "file", "web"],
-  )
+  # ══════════════════════════════════════
+  # 阶段 2: 交叉审查（依赖阶段 1 全部输出）
+  # ══════════════════════════════════════
+  security_role = ao_roles_load(slug="engineering-security-engineer")
+  tester_role = ao_roles_load(slug="testing-api-tester")
 
-  # 第 4 批：API 测试（依赖安全审查）
-  test_result = delegate_task(
-    goal="作为 API 测试员，对认证 API 进行全面测试",
-    context=f"{role_tester_context}\n\n安全审查结果：{security_result}",
-    toolsets=["terminal", "file"],
-  )
+  results_phase2 = delegate_task(tasks=[
+      {
+          "goal": "作为安全工程师，审查登录系统的安全性",
+          "context": f"你的角色定义：\n{security_role}\n\n统一架构规范：\n{architecture_spec}\n\n后端实现：{results_phase1[0]}\n前端实现：{results_phase1[1]}\n数据库Schema：{results_phase1[2]}",
+          "toolsets": ["terminal", "file", "web"],
+      },
+      {
+          "goal": "作为 API 测试员，根据规范测试认证 API",
+          "context": f"你的角色定义：\n{tester_role}\n\n统一架构规范：\n{architecture_spec}\n\n后端实现：{results_phase1[0]}",
+          "toolsets": ["terminal", "file"],
+      },
+  ])
 
-  # 汇总（主代理执行）
+  # ══════════════════════════════════════
+  # 阶段 3: 汇总
+  # ══════════════════════════════════════
   final_report = f"""
-# 登录系统全套交付物
+  # 登录系统交付报告
 
-## UX 设计
-{ux_result}
+  ## 统一架构规范
+  {architecture_spec}
 
-## 后端 API
-{results_2_4[0]}
+  ## 后端 API
+  {results_phase1[0]}
 
-## 前端 UI
-{results_2_4[1]}
+  ## 前端 UI
+  {results_phase1[1]}
 
-## 数据库 Schema
-{results_2_4[2]}
+  ## 数据库 Schema
+  {results_phase1[2]}
 
-## 安全审查
-{security_result}
+  ## 安全审查
+  {results_phase2[0]}
 
-## API 测试
-{test_result}
-"""
+  ## API 测试
+  {results_phase2[1]}
+  """
 ```
 
 ---

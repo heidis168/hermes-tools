@@ -9,7 +9,7 @@
 
 角色库位置（按优先级）：
   1. 环境变量 AO_ROLES_DIR
-  2. ~/.ao-roles/
+  2. 插件内置 agents/ 目录（默认）
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from collections import Counter, defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,6 @@ def _get_roles_dir() -> Path:
     env_dir = os.environ.get("AO_ROLES_DIR")
     if env_dir:
         return Path(env_dir).expanduser().resolve()
-    # 插件自身目录下的 agents/
     return Path(__file__).parent.resolve() / "agents"
 
 
@@ -46,11 +46,20 @@ def _load_index() -> list[dict]:
     if not idx_path.exists():
         raise FileNotFoundError(
             f"角色索引不存在: {idx_path}\n"
-            f"请先运行: python3 {_get_roles_dir() / 'scripts/build_index.py'}"
+            f"请先运行 ao_roles_index() 构建索引"
         )
     with open(idx_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
+def _resolve_role_filepath(slug: str, category: str) -> Path:
+    """根据 slug 和 category 动态计算角色文件路径，不依赖索引中的硬编码路径"""
+    return _get_roles_dir() / category / f"{slug}.md"
+
+
+# ════════════════════════════════════════════════════════════
+# 注册
+# ════════════════════════════════════════════════════════════
 
 def register(ctx) -> None:
     """注册所有 ao-roles 工具。由插件加载器在启动时调用。"""
@@ -62,7 +71,7 @@ def register(ctx) -> None:
         toolset="ao-roles",
         schema={
             "name": "ao_roles_index",
-            "description": "构建或刷新角色索引。扫描 ~/.ao-roles/ 下所有 .md 角色文件，提取 frontmatter 和摘要，生成可搜索的 role-index.json",
+            "description": "构建或刷新角色索引。扫描 agents/ 目录下所有 .md 角色文件，提取 frontmatter 和摘要，生成可搜索的 role-index.json",
             "parameters": {
                 "type": "object",
                 "properties": {},
@@ -108,7 +117,7 @@ def register(ctx) -> None:
         toolset="ao-roles",
         schema={
             "name": "ao_roles_match",
-            "description": "根据任务描述自动匹配最合适的角色阵容。分析输入内容后从 266 个角色中选出 Top-N 角色，附带匹配理由和推荐任务",
+            "description": "根据任务描述自动匹配最合适的角色阵容。分析输入内容后从所有角色中选出 Top-N 角色，附带匹配理由和推荐任务",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -134,7 +143,7 @@ def register(ctx) -> None:
         toolset="ao-roles",
         schema={
             "name": "ao_roles_load",
-            "description": "加载指定角色的完整定义（包括 frontmatter 和正文）。返回角色的完整 .md 内容，用于注入子代理的 context",
+            "description": "加载指定角色的完整定义（包括 frontmatter 和正文）。返回角色的完整 .md 内容，用于注入子代理的 context。路径根据 slug+category 动态计算，不依赖索引中的硬编码路径",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -179,8 +188,8 @@ def _handle_index(**kw) -> str:
         return json.dumps({
             "success": False,
             "error": f"角色目录不存在: {roles_dir}",
-            "hint": "请先克隆角色库: git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git ~/.ao-roles",
-        })
+            "hint": "请重新安装插件: hermes plugins install heidis168/hermes-tools/plugins/ao-roles --force",
+        }, ensure_ascii=False)
 
     index = []
     for root, _dirs, files in os.walk(roles_dir):
@@ -201,7 +210,6 @@ def _handle_index(**kw) -> str:
             except Exception:
                 continue
 
-            # 解析 frontmatter
             m = re.match(r'^---\s*\n(.*?)\n---\s*\n(.*)', content, re.DOTALL)
             if not m:
                 continue
@@ -227,7 +235,7 @@ def _handle_index(**kw) -> str:
                 "emoji": fm.get("emoji", ""),
                 "color": fm.get("color", ""),
                 "category": category,
-                "filepath": filepath,
+                # filepath 不存硬编码路径，由 _handle_load 动态计算
                 "summary": body[:300].strip(),
                 "body_length": len(body),
             })
@@ -238,7 +246,6 @@ def _handle_index(**kw) -> str:
     with open(idx_path, "w", encoding="utf-8") as f:
         json.dump(index, f, ensure_ascii=False, indent=2)
 
-    from collections import Counter
     cats = Counter(e["category"] for e in index)
 
     return json.dumps({
@@ -289,7 +296,7 @@ def _handle_search(args: dict, **kw) -> str:
 
 
 def _handle_match(args: dict, **kw) -> str:
-    """匹配角色 — 由 LLM 在调用时做语义分析，这里提供索引数据辅助"""
+    """匹配角色 — 返回索引数据供 LLM 做语义匹配"""
     task = args.get("task", "")
     max_roles = min(int(args.get("max_roles", 6)), 10)
 
@@ -301,9 +308,6 @@ def _handle_match(args: dict, **kw) -> str:
     except FileNotFoundError as e:
         return json.dumps({"success": False, "error": str(e)})
 
-    # 返回完整索引供 LLM 做语义匹配
-    # 按分类分组输出，减少 token 量
-    from collections import defaultdict
     by_category = defaultdict(list)
     for r in index:
         by_category[r["category"]].append({
@@ -324,18 +328,18 @@ def _handle_match(args: dict, **kw) -> str:
 
 
 def _handle_load(args: dict, **kw) -> str:
-    """加载角色完整定义"""
+    """加载角色完整定义 — 路径动态计算，不依赖索引中的硬编码路径"""
     slug = args.get("slug", "")
 
     if not slug:
         return json.dumps({"success": False, "error": "请提供角色 slug"})
 
+    # 先从索引查找 category
     try:
         index = _load_index()
     except FileNotFoundError as e:
         return json.dumps({"success": False, "error": str(e)})
 
-    # 查找角色
     match = None
     for r in index:
         if r["slug"] == slug:
@@ -349,8 +353,16 @@ def _handle_load(args: dict, **kw) -> str:
             "hint": "请先用 ao_roles_search 搜索正确的 slug",
         })
 
-    # 读取完整内容
-    filepath = match["filepath"]
+    # 动态计算文件路径，不依赖索引中的硬编码路径
+    filepath = _resolve_role_filepath(slug, match["category"])
+
+    if not filepath.exists():
+        return json.dumps({
+            "success": False,
+            "error": f"角色文件不存在: {filepath}",
+            "hint": f"期望路径: {filepath}，请检查角色库目录结构",
+        })
+
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
@@ -376,7 +388,6 @@ def _handle_list_categories(**kw) -> str:
     except FileNotFoundError as e:
         return json.dumps({"success": False, "error": str(e)})
 
-    from collections import Counter
     cats = Counter(r["category"] for r in index)
 
     categories = [
