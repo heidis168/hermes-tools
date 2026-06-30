@@ -54,26 +54,25 @@ def _load_index() -> list[dict]:
 
 def register(ctx) -> None:
     """注册所有 ao-roles 工具。由插件加载器在启动时调用。"""
-    from tools.registry import registry
-
     # ── 1. ao_roles_index ──
-    registry.register(
+    ctx.register_tool(
         name="ao_roles_index",
         toolset="ao-roles",
         schema={
             "name": "ao_roles_index",
-            "description": "构建或刷新角色索引。扫描 ~/.ao-roles/ 下所有 .md 角色文件，提取 frontmatter 和摘要，生成可搜索的 role-index.json",
+            "description": "构建或刷新角色索引。扫描 agents/ 目录下所有 .md 角色文件，提取 frontmatter 和摘要，生成可搜索的 role-index.json",
             "parameters": {
                 "type": "object",
                 "properties": {},
                 "required": [],
             },
         },
-        handler=lambda args, **kw: _handle_index(**kw),
+        handler=_handle_index,
+        emoji="📇",
     )
 
     # ── 2. ao_roles_search ──
-    registry.register(
+    ctx.register_tool(
         name="ao_roles_search",
         toolset="ao-roles",
         schema={
@@ -99,16 +98,17 @@ def register(ctx) -> None:
                 "required": ["keywords"],
             },
         },
-        handler=lambda args, **kw: _handle_search(args, **kw),
+        handler=_handle_search,
+        emoji="🔍",
     )
 
     # ── 3. ao_roles_match ──
-    registry.register(
+    ctx.register_tool(
         name="ao_roles_match",
         toolset="ao-roles",
         schema={
             "name": "ao_roles_match",
-            "description": "根据任务描述自动匹配最合适的角色阵容。分析输入内容后从 266 个角色中选出 Top-N 角色，附带匹配理由和推荐任务",
+            "description": "根据任务描述自动匹配最合适的角色阵容。分析输入内容后从所有角色中选出 Top-N 角色，附带匹配理由和推荐任务",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -125,16 +125,17 @@ def register(ctx) -> None:
                 "required": ["task"],
             },
         },
-        handler=lambda args, **kw: _handle_match(args, **kw),
+        handler=_handle_match,
+        emoji="🎯",
     )
 
     # ── 4. ao_roles_load ──
-    registry.register(
+    ctx.register_tool(
         name="ao_roles_load",
         toolset="ao-roles",
         schema={
             "name": "ao_roles_load",
-            "description": "加载指定角色的完整定义（包括 frontmatter 和正文）。返回角色的完整 .md 内容，用于注入子代理的 context",
+            "description": "加载指定角色的完整定义（包括 frontmatter 和正文）。返回角色的完整 .md 内容，用于注入子代理的 context。路径根据 slug+category 动态计算，不依赖索引中的硬编码路径",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -146,11 +147,12 @@ def register(ctx) -> None:
                 "required": ["slug"],
             },
         },
-        handler=lambda args, **kw: _handle_load(args, **kw),
+        handler=_handle_load,
+        emoji="📄",
     )
 
     # ── 5. ao_roles_list_categories ──
-    registry.register(
+    ctx.register_tool(
         name="ao_roles_list_categories",
         toolset="ao-roles",
         schema={
@@ -162,7 +164,8 @@ def register(ctx) -> None:
                 "required": [],
             },
         },
-        handler=lambda args, **kw: _handle_list_categories(**kw),
+        handler=_handle_list_categories,
+        emoji="📂",
     )
 
     logger.info("[ao-roles] 已注册 5 个工具")
