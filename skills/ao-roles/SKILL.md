@@ -145,8 +145,52 @@ activation:
 # ════════════════════════════════════════════════════════════
 # 阶段 0: 总项目计划（先导，仅此一个角色）
 # ════════════════════════════════════════════════════════════
-# 选择最合适的规划角色（产品经理/架构师/项目经理，取决于任务类型）
-planner_slug = "product/product-manager"  # 或 engineering-backend-architect 等
+# 根据任务类型选择最合适的规划角色
+# 映射表：任务类型 → 规划角色 slug
+PLANNER_ROLE_MAP = {
+    # 软件开发
+    "code_review": "engineering-software-architect",
+    "architecture": "engineering-software-architect",
+    "fullstack": "engineering-software-architect",
+    "backend": "engineering-backend-architect",
+    "frontend": "engineering-software-architect",
+    # 产品
+    "product": "product-manager",
+    "feature": "product-manager",
+    "requirement": "product-manager",
+    # 项目管理
+    "project": "project-manager-senior",
+    "planning": "project-manager-senior",
+    # 营销/内容
+    "marketing": "marketing-content-strategist",
+    "content": "marketing-content-strategist",
+    "social_media": "marketing-social-media-strategist",
+    "seo": "marketing-seo-specialist",
+    # 安全
+    "security": "security-architect",
+    "pentest": "security-architect",
+    # 设计
+    "design": "design-ux-architect",
+    "ui": "design-ui-designer",
+    "ux": "design-ux-architect",
+    # 数据/分析
+    "data": "finance-fpa-analyst",
+    "analytics": "finance-fpa-analyst",
+    # 游戏
+    "game": "game-designer",
+    # 电商
+    "ecommerce": "marketing-ecommerce-operator",
+    # 供应链
+    "supply_chain": "supply-chain-strategist",
+    # 通用/工作流
+    "workflow": "specialized-workflow-architect",
+    "automation": "specialized-workflow-architect",
+    # 默认
+    "default": "product-manager",
+}
+
+# 从第 2 步的分析结果中获取 task_type
+planner_slug = PLANNER_ROLE_MAP.get(task_type, PLANNER_ROLE_MAP["default"])
 planner_role = ao_roles_load(slug=planner_slug)
 
 master_plan = delegate_task(
