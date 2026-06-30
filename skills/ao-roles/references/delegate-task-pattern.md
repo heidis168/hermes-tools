@@ -100,126 +100,71 @@ DAG：
 
 ---
 
-## 示例 2：登录系统全套（4 阶段，严格串行→并行→串行）
+## 示例 2：登录系统全套（通用 4 阶段结构）
 
 ```
 输入："做一个登录系统 全套"
 
-阶段 0: 统一架构（先导，仅此一个角色）
-  └── 后端架构师 → 定义 API 规范、数据 Schema、技术栈
-      输出：architecture_spec（所有下游角色共享）
+阶段 0: 总项目计划（先导）
+  └── 后端架构师 → 制定任务分解、依赖关系、接口契约
+      输出：master_plan（所有下游角色共享）
 
-阶段 1: 并行执行（依赖阶段 0）
-  ├── 后端架构师 → 按 architecture_spec 实现 API
-  ├── 前端开发者 → 按 architecture_spec 实现 UI
-  └── 数据库优化师 → 按 architecture_spec 设计表
+阶段 1: 按计划执行（依赖阶段 0）
+  ├── 后端 → 按 master_plan 实现 API
+  ├── 前端 → 按 master_plan 实现 UI
+  └── 数据库 → 按 master_plan 设计 Schema
 
-阶段 2: 交叉审查（依赖阶段 1）
-  ├── 安全工程师 → 审查 API + UI + Schema
-  └── API 测试员 → 根据规范测试 API
+阶段 2: 集成验证（依赖阶段 1）
+  ├── 安全工程师 → 验证是否符合接口契约
+  └── API 测试员 → 按验收标准测试
 
 阶段 3: 汇总
   └── 输出最终报告
 
 执行：
   # ══════════════════════════════════════
-  # 阶段 0: 统一架构（必须先执行）
+  # 阶段 0: 总项目计划（必须先执行）
   # ══════════════════════════════════════
-  architect_role = ao_roles_load(slug="engineering-backend-architect")
-  architecture_spec = delegate_task(
-      goal="作为后端架构师，为登录系统定义统一架构规范",
+  planner_role = ao_roles_load(slug="engineering-backend-architect")
+  master_plan = delegate_task(
+      goal="作为后端架构师，为登录系统制定总项目计划",
       context=f"""你的角色定义：
-{architect_role}
+{planner_role}
 
-为登录系统定义以下统一规范，所有下游角色将共享此规范：
+为以下需求制定完整的项目执行计划：
 
-1. API 接口规范
-   - 端点路径、HTTP 方法、请求/响应 JSON 格式
-   - 认证方式（JWT / Session）
-   - 错误码规范
+【需求】做一个登录系统全套
 
-2. 数据 Schema
-   - 用户表字段名、类型、约束
-   - Token 表结构
-   - 字段命名约定（snake_case / camelCase）
-
-3. 技术栈
-   - 后端语言/框架
-   - 前端框架
-   - 数据库
-
-输出格式必须是结构化的 JSON/YAML 规范，所有下游角色直接引用。""",
+【要求】
+1. 任务分解：拆成可独立执行的子任务，每个分配一个角色
+2. 依赖关系：明确前置依赖，标注可并行的任务
+3. 接口契约：定义子任务间的交付物格式约定
+4. 输出严格按 JSON 格式：
+{{
+  "project_name": "登录系统",
+  "tasks": [
+    {{"id": "task-1", "role_slug": "...", "description": "...", "depends_on": [], "output_contract": "...", "toolsets": [...]}},
+    ...
+  ]
+}}""",
       toolsets=["file"],
   )
 
   # ══════════════════════════════════════
-  # 阶段 1: 并行执行（所有角色共享 architecture_spec）
+  # 阶段 1: 按计划执行
   # ══════════════════════════════════════
-  backend_role = ao_roles_load(slug="engineering-backend-architect")
-  frontend_role = ao_roles_load(slug="engineering-frontend-developer")
-  db_role = ao_roles_load(slug="engineering-database-optimizer")
-
-  results_phase1 = delegate_task(tasks=[
-      {
-          "goal": "作为后端架构师，按统一规范实现认证 API",
-          "context": f"你的角色定义：\n{backend_role}\n\n统一架构规范：\n{architecture_spec}\n\n严格按以上规范实现，字段名、路径、格式必须一致。",
-          "toolsets": ["terminal", "file"],
-      },
-      {
-          "goal": "作为前端开发者，按统一规范实现登录 UI",
-          "context": f"你的角色定义：\n{frontend_role}\n\n统一架构规范：\n{architecture_spec}\n\nAPI 接口和数据格式必须与规范完全一致。",
-          "toolsets": ["terminal", "file"],
-      },
-      {
-          "goal": "作为数据库优化师，按统一规范设计 Schema",
-          "context": f"你的角色定义：\n{db_role}\n\n统一架构规范：\n{architecture_spec}\n\n表名、字段名、类型必须与规范一致。",
-          "toolsets": ["terminal", "file"],
-      },
-  ])
+  # 解析 master_plan，按依赖关系分批执行
+  # 第 1 批：无依赖的任务（可并行）
+  # 第 2 批：依赖第 1 批的任务
+  # ...
 
   # ══════════════════════════════════════
-  # 阶段 2: 交叉审查（依赖阶段 1 全部输出）
+  # 阶段 2: 集成验证
   # ══════════════════════════════════════
-  security_role = ao_roles_load(slug="engineering-security-engineer")
-  tester_role = ao_roles_load(slug="testing-api-tester")
-
-  results_phase2 = delegate_task(tasks=[
-      {
-          "goal": "作为安全工程师，审查登录系统的安全性",
-          "context": f"你的角色定义：\n{security_role}\n\n统一架构规范：\n{architecture_spec}\n\n后端实现：{results_phase1[0]}\n前端实现：{results_phase1[1]}\n数据库Schema：{results_phase1[2]}",
-          "toolsets": ["terminal", "file", "web"],
-      },
-      {
-          "goal": "作为 API 测试员，根据规范测试认证 API",
-          "context": f"你的角色定义：\n{tester_role}\n\n统一架构规范：\n{architecture_spec}\n\n后端实现：{results_phase1[0]}",
-          "toolsets": ["terminal", "file"],
-      },
-  ])
 
   # ══════════════════════════════════════
   # 阶段 3: 汇总
   # ══════════════════════════════════════
-  final_report = f"""
-  # 登录系统交付报告
-
-  ## 统一架构规范
-  {architecture_spec}
-
-  ## 后端 API
-  {results_phase1[0]}
-
-  ## 前端 UI
-  {results_phase1[1]}
-
-  ## 数据库 Schema
-  {results_phase1[2]}
-
-  ## 安全审查
-  {results_phase2[0]}
-
-  ## API 测试
-  {results_phase2[1]}
-  """
 ```
 
 ---

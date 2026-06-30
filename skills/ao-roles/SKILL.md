@@ -100,144 +100,136 @@ activation:
 
 ### 第 4 步：编排工作流 DAG
 
-**核心原则：必须先有统一架构，再有并行执行。**
+### 第 4 步：编排工作流 DAG
 
-所有多角色工作流必须遵循以下阶段：
+**核心原则：必须先有总项目计划，再有按计划执行。**
+
+所有多角色工作流必须遵循以下通用 4 阶段结构：
 
 ```
-阶段 0: 统一架构（必须最先执行，且仅此一个角色）
-  └── 架构师/产品经理 定义：
-      - API 接口规范（端点、请求/响应格式）
-      - 数据 Schema（字段名、类型、约束）
-      - 技术栈选型
-      - 输出：architecture_spec（所有下游角色共享）
+阶段 0: 总项目计划（必须最先执行，且仅此一个角色）
+  └── 项目规划角色 制定：
+      - 任务分解（WBS）：把大任务拆成可独立执行的子任务
+      - 依赖关系：哪些子任务必须先完成，哪些可以并行
+      - 接口契约：子任务之间的交付物格式/协议/约定
+      - 角色分配：每个子任务分配给哪个角色
+      - 输出：master_plan（所有下游角色共享的执行蓝图）
 
-阶段 1: 并行执行（依赖阶段 0 的输出）
-  ├── 后端开发者 → 按 architecture_spec 实现 API
-  ├── 前端开发者 → 按 architecture_spec 实现 UI
-  ├── 数据库优化师 → 按 architecture_spec 设计表
-  └── ...（所有角色共享同一份规范）
+阶段 1: 按计划执行（依赖阶段 0 的 master_plan）
+  ├── 角色 A → 按 master_plan 中分配的 task_A 执行
+  ├── 角色 B → 按 master_plan 中分配的 task_B 执行
+  ├── 角色 C → 按 master_plan 中分配的 task_C 执行
+  └── ...（所有角色按同一份计划工作，依赖关系由计划定义）
 
-阶段 2: 交叉审查（依赖阶段 1 的输出）
-  ├── 安全工程师 → 审查 API + UI + Schema
-  └── 测试员 → 根据 API 规范写测试
+阶段 2: 集成验证（依赖阶段 1 的输出）
+  ├── 审查角色 → 验证各子任务产出是否符合 master_plan 中的接口契约
+  └── 测试角色 → 按 master_plan 中的验收标准测试
 
 阶段 3: 汇总（依赖阶段 2 的输出）
   └── 输出最终报告
 ```
 
-**禁止**：让多个角色在无统一规范的情况下各做各的，然后期望它们能拼在一起。
+**禁止**：让多个角色在无统一计划的情况下各做各的，然后期望它们能拼在一起。
+
+**关键**：阶段 0 的 `master_plan` 必须包含明确的**接口契约**——即子任务之间的交付物格式约定。这样即使各角色并行执行，最终产出也能无缝拼接。
 
 ### 第 5 步：通过 delegate_task 执行
 
 每个步骤使用 `delegate_task` 派生子代理执行。
 
 **关键规则**：
-- **阶段 0（统一架构）必须先执行**，生成所有下游角色共享的 `architecture_spec`
-- 阶段 1 的每个子代理的 context 中**必须包含完整的 `architecture_spec`**，确保字段名、接口路径、数据格式一致
-- 阶段 2 的审查角色**必须拿到阶段 1 的全部输出**才能做有效审查
+- **阶段 0（总项目计划）必须先执行**，生成所有下游角色共享的 `master_plan`
+- 阶段 1 的每个子代理的 context 中**必须包含完整的 `master_plan`**，特别是自己负责的子任务和接口契约
+- 阶段 2 的审查角色**必须拿到阶段 1 的全部输出**才能做有效验证
 - 子代理的 `toolsets` 根据任务类型选择
 
 ```python
 # ════════════════════════════════════════════════════════════
-# 阶段 0: 统一架构（先导，仅此一个角色）
+# 阶段 0: 总项目计划（先导，仅此一个角色）
 # ════════════════════════════════════════════════════════════
-architect_role = ao_roles_load(slug="engineering-backend-architect")
-architecture_spec = delegate_task(
-    goal="作为后端架构师，为登录系统定义统一架构规范",
+# 选择最合适的规划角色（产品经理/架构师/项目经理，取决于任务类型）
+planner_slug = "product/product-manager"  # 或 engineering-backend-architect 等
+planner_role = ao_roles_load(slug=planner_slug)
+
+master_plan = delegate_task(
+    goal=f"作为规划角色，为任务制定总项目计划",
     context=f"""你的角色定义：
-{architect_role}
+{planner_role}
 
 你的任务：
-为登录系统定义以下统一规范，所有下游角色将共享此规范：
+为以下需求制定完整的项目执行计划：
 
-1. API 接口规范
-   - 端点路径、HTTP 方法、请求/响应 JSON 格式
-   - 认证方式（JWT / Session）
-   - 错误码规范
+【需求描述】
+{用户输入的内容}
 
-2. 数据 Schema
-   - 用户表字段名、类型、约束
-   - Token 表结构
-   - 字段命名约定（snake_case / camelCase）
+【要求】
+1. 任务分解（WBS）：把大任务拆成可独立执行的子任务，每个子任务分配一个角色
+2. 依赖关系：明确每个子任务的前置依赖，标注哪些可以并行
+3. 接口契约：定义子任务之间的交付物格式/协议/约定，确保各角色产出能拼接
+4. 角色分配：每个子任务指定具体角色 slug
 
-3. 技术栈
-   - 后端语言/框架
-   - 前端框架
-   - 数据库
-
-输出格式必须是结构化的 JSON/YAML 规范，所有下游角色直接引用。""",
+输出格式（严格按此 JSON 结构）：
+{{
+  "project_name": "项目名称",
+  "tasks": [
+    {{
+      "id": "task-1",
+      "role_slug": "engineering-backend-architect",
+      "description": "任务描述",
+      "depends_on": [],
+      "output_contract": "本任务输出的格式约定",
+      "toolsets": ["terminal", "file"]
+    }},
+    ...
+  ]
+}}
+""",
     toolsets=["file"],
 )
 
-# ════════════════════════════════════════════════════════════
-# 阶段 1: 并行执行（所有角色共享 architecture_spec）
-# ════════════════════════════════════════════════════════════
-backend_role = ao_roles_load(slug="engineering-backend-architect")
-frontend_role = ao_roles_load(slug="engineering-frontend-developer")
-db_role = ao_roles_load(slug="engineering-database-optimizer")
+# 解析 master_plan 获取任务列表
+import json
+plan = json.loads(master_plan)  # 实际需要从 delegate_task 返回值中提取
 
-results_phase1 = delegate_task(tasks=[
+# ════════════════════════════════════════════════════════════
+# 阶段 1: 按计划执行
+# ════════════════════════════════════════════════════════════
+# 按依赖关系分批执行
+# 第 1 批：无依赖的任务（可并行）
+batch_1_tasks = [t for t in plan["tasks"] if not t["depends_on"]]
+batch_1_results = delegate_task(tasks=[
     {
-        "goal": "作为后端架构师，按统一规范实现认证 API",
-        "context": f"你的角色定义：\n{backend_role}\n\n统一架构规范：\n{architecture_spec}\n\n严格按以上规范实现，字段名、路径、格式必须一致。",
-        "toolsets": ["terminal", "file"],
-    },
-    {
-        "goal": "作为前端开发者，按统一规范实现登录 UI",
-        "context": f"你的角色定义：\n{frontend_role}\n\n统一架构规范：\n{architecture_spec}\n\nAPI 接口和数据格式必须与规范完全一致。",
-        "toolsets": ["terminal", "file"],
-    },
-    {
-        "goal": "作为数据库优化师，按统一规范设计 Schema",
-        "context": f"你的角色定义：\n{db_role}\n\n统一架构规范：\n{architecture_spec}\n\n表名、字段名、类型必须与规范一致。",
-        "toolsets": ["terminal", "file"],
-    },
+        "goal": f"作为角色，完成：{t['description']}",
+        "context": f"你的角色定义：\n{ao_roles_load(slug=t['role_slug'])}\n\n总项目计划：\n{master_plan}\n\n你的子任务：\n{t['description']}\n\n输出契约：\n{t['output_contract']}\n\n必须严格按输出契约格式交付。",
+        "toolsets": t.get("toolsets", ["terminal", "file"]),
+    }
+    for t in batch_1_tasks
 ])
 
-# ════════════════════════════════════════════════════════════
-# 阶段 2: 交叉审查（依赖阶段 1 全部输出）
-# ════════════════════════════════════════════════════════════
-security_role = ao_roles_load(slug="engineering-security-engineer")
-tester_role = ao_roles_load(slug="testing-api-tester")
+# 第 2 批：依赖第 1 批的任务
+batch_2_tasks = [t for t in plan["tasks"] if t["depends_on"] and all(
+    any(b["id"] == dep for b in batch_1_tasks) for dep in t["depends_on"]
+)]
+if batch_2_tasks:
+    batch_2_results = delegate_task(tasks=[
+        {
+            "goal": f"作为角色，完成：{t['description']}",
+            "context": f"你的角色定义：\n{ao_roles_load(slug=t['role_slug'])}\n\n总项目计划：\n{master_plan}\n\n你的子任务：\n{t['description']}\n\n上游输出：\n{batch_1_results}\n\n输出契约：\n{t['output_contract']}",
+            "toolsets": t.get("toolsets", ["terminal", "file"]),
+        }
+        for t in batch_2_tasks
+    ])
 
-results_phase2 = delegate_task(tasks=[
-    {
-        "goal": "作为安全工程师，审查登录系统的安全性",
-        "context": f"你的角色定义：\n{security_role}\n\n统一架构规范：\n{architecture_spec}\n\n后端实现：{results_phase1[0]}\n前端实现：{results_phase1[1]}\n数据库Schema：{results_phase1[2]}",
-        "toolsets": ["terminal", "file", "web"],
-    },
-    {
-        "goal": "作为 API 测试员，根据规范测试认证 API",
-        "context": f"你的角色定义：\n{tester_role}\n\n统一架构规范：\n{architecture_spec}\n\n后端实现：{results_phase1[0]}",
-        "toolsets": ["terminal", "file"],
-    },
-])
+# ... 按依赖层级继续执行后续批次
+
+# ════════════════════════════════════════════════════════════
+# 阶段 2: 集成验证
+# ════════════════════════════════════════════════════════════
+# 根据 master_plan 中的接口契约验证各子任务产出
 
 # ════════════════════════════════════════════════════════════
 # 阶段 3: 汇总
 # ════════════════════════════════════════════════════════════
-final_report = f"""
-# 登录系统交付报告
-
-## 统一架构规范
-{architecture_spec}
-
-## 后端 API
-{results_phase1[0]}
-
-## 前端 UI
-{results_phase1[1]}
-
-## 数据库 Schema
-{results_phase1[2]}
-
-## 安全审查
-{results_phase2[0]}
-
-## API 测试
-{results_phase2[1]}
-"""
 ```
 
 ### 第 6 步：汇总输出
