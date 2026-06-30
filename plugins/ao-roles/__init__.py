@@ -46,10 +46,15 @@ def _load_index() -> list[dict]:
     if not idx_path.exists():
         raise FileNotFoundError(
             f"角色索引不存在: {idx_path}\n"
-            f"请先运行: python3 {_get_roles_dir() / 'scripts/build_index.py'}"
+            f"请先运行 ao_roles_index() 构建索引"
         )
     with open(idx_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def _resolve_role_filepath(slug: str, category: str) -> Path:
+    """根据 slug 和 category 动态计算角色文件路径，不依赖索引中的硬编码路径"""
+    return _get_roles_dir() / category / f"{slug}.md"
 
 
 def register(ctx) -> None:
