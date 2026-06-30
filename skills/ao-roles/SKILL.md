@@ -186,7 +186,7 @@ PLANNER_ROLE_MAP = {
     "workflow": "specialized-workflow-architect",
     "automation": "specialized-workflow-architect",
     # 默认
-    "default": "product-manager",
+    "default": "project-manager-senior",
 }
 
 # 从第 2 步的分析结果中获取 task_type
@@ -199,7 +199,12 @@ master_plan = delegate_task(
 {planner_role}
 
 你的任务：
-为以下需求制定完整的项目执行计划：
+为以下需求制定完整的项目执行计划。
+
+【核心原则】
+1. 精确引用需求，不要添加不存在的功能或奢华需求
+2. 任务分解要务实，每个任务可独立执行、可验证
+3. 接口契约必须明确，确保各角色产出能无缝拼接
 
 【需求描述】
 {用户输入的内容}
