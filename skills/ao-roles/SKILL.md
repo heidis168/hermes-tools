@@ -72,216 +72,103 @@ activation:
 - `delegation` 工具集必须启用（`hermes tools enable delegation`）
 - 当前会话需要 `/reset` 后才能使用 `delegate_task`
 
-## 执行流程
+## 执行流程（严格算法，必须按顺序执行）
+
+> ⚠️ **这是必须遵守的算法，不是参考指南。跳过任何一步都会导致各角色产出无法拼接。**
 
 ### 第 1 步：加载角色索引
 
-使用插件工具 `ao_roles_index()` 构建索引，或通过 `ao_roles_search()` / `ao_roles_match()` 直接搜索匹配角色。
-
-每个角色包含：slug, name, description, emoji, category, filepath, summary
+调用 `ao_roles_index()` 确保索引存在。
 
 ### 第 2 步：分析输入内容
 
-分析用户输入，提取：
-- **任务类型**：code_review / architecture_analysis / content_creation / security_audit / marketing / planning / testing / research / ...
-- **领域**：engineering / marketing / design / finance / security / product / ...
-- **关键词和技术栈**
-- **复杂度**：low / medium / high
-- **是否需要并行**
+分析用户输入，提取 task_type。**这是后续选择规划角色的依据。**
 
 ### 第 3 步：匹配角色
 
-从 266 个角色中选出最合适的 2–6 个角色。匹配依据：
-1. 角色 `name` 和 `description` 与任务类型的语义匹配度
-2. 角色 `category` 与任务领域的匹配度
-3. 角色的 `summary`（正文前 300 字）中的专业领域
+用 `ao_roles_match()` 从索引中选出 2–6 个角色。
 
-**输出**：按相关性排序的角色列表，每个角色附带匹配理由和推荐任务。
+### 第 4 步：执行 4 阶段工作流（严格按此顺序）
 
-### 第 4 步：编排工作流 DAG
+#### ⛔ 禁止行为
+- ❌ 跳过阶段 0，直接派发子代理
+- ❌ 让多个角色在无统一计划的情况下各做各的
+- ❌ 把阶段 0 和阶段 1 合并到同一个 delegate_task batch 中
+- ❌ 用主代理"扮演"多个角色代替 delegate_task
 
-**核心原则：必须先有总项目计划，再有按计划执行。**
+#### ✅ 阶段 0：总项目计划（必须先执行，且仅此一个子代理）
 
-所有多角色工作流必须遵循以下通用 4 阶段结构：
-
-```
-阶段 0: 总项目计划（必须最先执行，且仅此一个角色）
-  └── 项目规划角色 制定：
-      - 任务分解（WBS）：把大任务拆成可独立执行的子任务
-      - 依赖关系：哪些子任务必须先完成，哪些可以并行
-      - 接口契约：子任务之间的交付物格式/协议/约定
-      - 角色分配：每个子任务分配给哪个角色
-      - 输出：master_plan（所有下游角色共享的执行蓝图）
-
-阶段 1: 按计划执行（依赖阶段 0 的 master_plan）
-  ├── 角色 A → 按 master_plan 中分配的 task_A 执行
-  ├── 角色 B → 按 master_plan 中分配的 task_B 执行
-  ├── 角色 C → 按 master_plan 中分配的 task_C 执行
-  └── ...（所有角色按同一份计划工作，依赖关系由计划定义）
-
-阶段 2: 集成验证（依赖阶段 1 的输出）
-  ├── 审查角色 → 验证各子任务产出是否符合 master_plan 中的接口契约
-  └── 测试角色 → 按 master_plan 中的验收标准测试
-
-阶段 3: 汇总（依赖阶段 2 的输出）
-  └── 输出最终报告
-```
-
-**禁止**：让多个角色在无统一计划的情况下各做各的，然后期望它们能拼在一起。
-
-**关键**：阶段 0 的 `master_plan` 必须包含明确的**接口契约**——即子任务之间的交付物格式约定。这样即使各角色并行执行，最终产出也能无缝拼接。
-
-### 第 5 步：通过 delegate_task 执行
-
-每个步骤使用 `delegate_task` 派生子代理执行。
-
-**关键规则**：
-- **阶段 0（总项目计划）必须先执行**，生成所有下游角色共享的 `master_plan`
-- 阶段 1 的每个子代理的 context 中**必须包含完整的 `master_plan`**，特别是自己负责的子任务和接口契约
-- 阶段 2 的审查角色**必须拿到阶段 1 的全部输出**才能做有效验证
-- 子代理的 `toolsets` 根据任务类型选择
+这是整个工作流**最重要的一步**。必须单独执行，不能和任何其他任务并行。
 
 ```python
-# ════════════════════════════════════════════════════════════
-# 阶段 0: 总项目计划（先导，仅此一个角色）
-# ════════════════════════════════════════════════════════════
-# 根据任务类型选择最合适的规划角色
-# 映射表：任务类型 → 规划角色 slug
-PLANNER_ROLE_MAP = {
-    # 软件开发
+# 根据 task_type 选择规划角色
+PLANNER_MAP = {
     "code_review": "engineering-software-architect",
     "architecture": "engineering-software-architect",
     "fullstack": "engineering-software-architect",
     "backend": "engineering-backend-architect",
     "frontend": "engineering-software-architect",
-    # 产品
     "product": "product-manager",
-    "feature": "product-manager",
-    "requirement": "product-manager",
-    # 项目管理
     "project": "project-manager-senior",
     "planning": "project-manager-senior",
-    # 营销/内容
     "marketing": "marketing-content-strategist",
     "content": "marketing-content-strategist",
-    "social_media": "marketing-social-media-strategist",
-    "seo": "marketing-seo-specialist",
-    # 安全
     "security": "security-architect",
-    "pentest": "security-architect",
-    # 设计
     "design": "design-ux-architect",
-    "ui": "design-ui-designer",
-    "ux": "design-ux-architect",
-    # 数据/分析
     "data": "finance-fpa-analyst",
-    "analytics": "finance-fpa-analyst",
-    # 游戏
     "game": "game-designer",
-    # 电商
     "ecommerce": "marketing-ecommerce-operator",
-    # 供应链
-    "supply_chain": "supply-chain-strategist",
-    # 通用/工作流
     "workflow": "specialized-workflow-architect",
-    "automation": "specialized-workflow-architect",
-    # 默认
-    "default": "project-manager-senior",
 }
+planner_slug = PLANNER_MAP.get(task_type, "project-manager-senior")
 
-# 从第 2 步的分析结果中获取 task_type
-planner_slug = PLANNER_ROLE_MAP.get(task_type, PLANNER_ROLE_MAP["default"])
-planner_role = ao_roles_load(slug=planner_slug)
-
+# ★ 必须单独执行，不能和任何其他任务并行
 master_plan = delegate_task(
-    goal=f"作为规划角色，为任务制定总项目计划",
-    context=f"""你的角色定义：
-{planner_role}
-
-你的任务：
-为以下需求制定完整的项目执行计划。
-
-【核心原则】
-1. 精确引用需求，不要添加不存在的功能或奢华需求
-2. 任务分解要务实，每个任务可独立执行、可验证
-3. 接口契约必须明确，确保各角色产出能无缝拼接
-
-【需求描述】
-{用户输入的内容}
-
-【要求】
-1. 任务分解（WBS）：把大任务拆成可独立执行的子任务，每个子任务分配一个角色
-2. 依赖关系：明确每个子任务的前置依赖，标注哪些可以并行
-3. 接口契约：定义子任务之间的交付物格式/协议/约定，确保各角色产出能拼接
-4. 角色分配：每个子任务指定具体角色 slug
-
-输出格式（严格按此 JSON 结构）：
-{{
-  "project_name": "项目名称",
-  "tasks": [
-    {{
-      "id": "task-1",
-      "role_slug": "engineering-backend-architect",
-      "description": "任务描述",
-      "depends_on": [],
-      "output_contract": "本任务输出的格式约定",
-      "toolsets": ["terminal", "file"]
-    }},
-    ...
-  ]
-}}
-""",
+    goal=f"作为规划角色，为项目制定总执行计划",
+    context=f"...（包含角色定义 + 需求 + 输出 JSON 格式要求）...",
     toolsets=["file"],
 )
 
-# 解析 master_plan 获取任务列表
-import json
-plan = json.loads(master_plan)  # 实际需要从 delegate_task 返回值中提取
-
-# ════════════════════════════════════════════════════════════
-# 阶段 1: 按计划执行
-# ════════════════════════════════════════════════════════════
-# 按依赖关系分批执行
-# 第 1 批：无依赖的任务（可并行）
-batch_1_tasks = [t for t in plan["tasks"] if not t["depends_on"]]
-batch_1_results = delegate_task(tasks=[
-    {
-        "goal": f"作为角色，完成：{t['description']}",
-        "context": f"你的角色定义：\n{ao_roles_load(slug=t['role_slug'])}\n\n总项目计划：\n{master_plan}\n\n你的子任务：\n{t['description']}\n\n输出契约：\n{t['output_contract']}\n\n必须严格按输出契约格式交付。",
-        "toolsets": t.get("toolsets", ["terminal", "file"]),
-    }
-    for t in batch_1_tasks
-])
-
-# 第 2 批：依赖第 1 批的任务
-batch_2_tasks = [t for t in plan["tasks"] if t["depends_on"] and all(
-    any(b["id"] == dep for b in batch_1_tasks) for dep in t["depends_on"]
-)]
-if batch_2_tasks:
-    batch_2_results = delegate_task(tasks=[
-        {
-            "goal": f"作为角色，完成：{t['description']}",
-            "context": f"你的角色定义：\n{ao_roles_load(slug=t['role_slug'])}\n\n总项目计划：\n{master_plan}\n\n你的子任务：\n{t['description']}\n\n上游输出：\n{batch_1_results}\n\n输出契约：\n{t['output_contract']}",
-            "toolsets": t.get("toolsets", ["terminal", "file"]),
-        }
-        for t in batch_2_tasks
-    ])
-
-# ... 按依赖层级继续执行后续批次
-
-# ════════════════════════════════════════════════════════════
-# 阶段 2: 集成验证
-# ════════════════════════════════════════════════════════════
-# 根据 master_plan 中的接口契约验证各子任务产出
-
-# ════════════════════════════════════════════════════════════
-# 阶段 3: 汇总
-# ════════════════════════════════════════════════════════════
+# ★ 必须验证 master_plan 包含有效的 tasks 数组
+# ★ 必须从 master_plan 中解析出 tasks 列表
 ```
 
-### 第 6 步：汇总输出
+#### ✅ 阶段 1：按计划分批执行
 
-收集所有子代理的输出，生成最终报告。
+从 `master_plan` 中解析出 `tasks` 数组，按 `depends_on` 分批：
+
+```python
+plan = json.loads(master_plan)  # 解析 master_plan
+
+# 批次 1：所有 depends_on=[] 的任务（可并行）
+batch1 = [t for t in plan["tasks"] if not t["depends_on"]]
+if batch1:
+    r1 = delegate_task(tasks=[
+        {
+            "goal": t["description"],
+            "context": f"角色定义：\n{ao_roles_load(slug=t['role_slug'])}\n\n总计划：\n{master_plan}\n\n你的任务：\n{t['description']}\n\n输出契约：\n{t['output_contract']}",
+            "toolsets": t.get("toolsets", ["terminal", "file"]),
+        }
+        for t in batch1
+    ])
+
+# 批次 2：依赖批次 1 的任务
+batch2 = [t for t in plan["tasks"] if t["depends_on"] and all(
+    any(b["id"] == d for b in batch1) for d in t["depends_on"]
+)]
+if batch2:
+    r2 = delegate_task(tasks=[...])  # context 中带上 batch1 的输出
+
+# 批次 3、4……按依赖层级继续
+```
+
+#### ✅ 阶段 2：集成验证
+
+用审查角色验证阶段 1 的所有产出是否符合 `master_plan` 中的接口契约。
+
+#### ✅ 阶段 3：汇总
+
+输出最终报告。
 
 ## 角色匹配策略
 
