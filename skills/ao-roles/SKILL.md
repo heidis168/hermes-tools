@@ -17,7 +17,11 @@ description: 自动角色匹配工作流引擎——输入内容，自动从 266
 
 也可通过环境变量 `AO_ROLES_DIR` 指定自定义路径。
 
-角色索引由 `ao_roles_index()` 工具自动构建。
+角色索引由 `ao_roles_index()` 工具自动构建（插件内置 `agents/` 目录）。
+
+## 读取角色定义
+
+使用插件工具 `ao_roles_load(slug=...)` 加载角色完整定义，不要直接读文件路径。
 
 ## 前置条件
 
@@ -28,7 +32,8 @@ description: 自动角色匹配工作流引擎——输入内容，自动从 266
 
 ### 第 1 步：加载角色索引
 
-读取 `~/.ao-roles/role-index.json` 获取所有角色信息。
+使用插件工具 `ao_roles_index()` 构建索引，或通过 `ao_roles_search()` / `ao_roles_match()` 直接搜索匹配角色。
+
 每个角色包含：slug, name, description, emoji, category, filepath, summary
 
 ### 第 2 步：分析输入内容
@@ -59,10 +64,12 @@ description: 自动角色匹配工作流引擎——输入内容，自动从 266
 
 ```python
 # 单步子代理
+role_content = ao_roles_load(slug="{slug}")  # 使用插件工具加载
+
 delegate_task(
     goal="作为 {角色名}，完成以下任务：{具体任务描述}",
-    context="""你的角色定义：
-{读取 ~/.ao-roles/{category}/{slug}.md 的完整内容}
+    context=f"""你的角色定义：
+{role_content}
 
 上游输出：
 {如果有依赖，传入上游步骤的输出}
