@@ -6,7 +6,7 @@
 
 ```python
 # 1. 读取角色人格
-role_content = read_file(f"~/.ao-roles/{category}/{slug}.md")
+role_content = ao_roles_load(slug=slug)
 
 # 2. 构造 context
 context = f"""# 你的角色人格

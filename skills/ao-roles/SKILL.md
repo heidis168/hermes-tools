@@ -13,9 +13,11 @@ description: 自动角色匹配工作流引擎——输入内容，自动从 266
 
 ## 角色库位置
 
-角色定义文件在：`~/.ao-roles/`
-角色索引在：`~/.ao-roles/role-index.json`
-匹配脚本在：`~/.ao-roles/scripts/match.py`
+角色定义文件在插件内置的 `agents/` 目录中（装插件即自带，无需额外 clone）。
+
+也可通过环境变量 `AO_ROLES_DIR` 指定自定义路径。
+
+角色索引由 `ao_roles_index()` 工具自动构建。
 
 ## 前置条件
 

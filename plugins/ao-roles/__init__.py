@@ -23,11 +23,17 @@ logger = logging.getLogger(__name__)
 
 
 def _get_roles_dir() -> Path:
-    """获取角色库根目录"""
+    """获取角色库根目录
+
+    优先级：
+    1. 环境变量 AO_ROLES_DIR（用户自定义路径）
+    2. 插件内置 agents/ 目录（默认，装插件即自带）
+    """
     env_dir = os.environ.get("AO_ROLES_DIR")
     if env_dir:
         return Path(env_dir).expanduser().resolve()
-    return Path.home() / ".ao-roles"
+    # 插件自身目录下的 agents/
+    return Path(__file__).parent.resolve() / "agents"
 
 
 def _get_index_path() -> Path:

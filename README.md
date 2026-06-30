@@ -69,23 +69,13 @@ hermes skills update ao-roles
 hermes skills install heidis168/hermes-tools/skills/remote-ssh-parallel --force
 ```
 
-### 3. 安装角色库（ao-roles 专用）
+### 3. 构建角色索引（ao-roles 专用）
 
-装完 ao-roles 插件后，需要准备角色定义文件：
-
-```bash
-# 方式一：从 GitHub 克隆（推荐，可更新）
-git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git ~/.ao-roles
-
-# 方式二：设置自定义路径
-export AO_ROLES_DIR=/your/path/to/roles
-```
-
-首次使用前构建索引：
+装完 ao-roles 插件后，角色定义文件已内置在插件中。首次使用前构建索引：
 
 ```bash
-python3 ~/.ao-roles/scripts/build_index.py
-# 或通过插件工具：ao_roles_index()
+# 在 Hermes 中调用
+ao_roles_index()
 ```
 
 ---
